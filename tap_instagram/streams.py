@@ -60,7 +60,9 @@ class MediaStream(InstagramStream):
     """Define custom stream."""
 
     name = "media"
-    path = "/{user_id}/media"  # user_id is populated using child context keys from UsersStream
+    path = (
+        "/{user_id}/media"  # user_id is populated using child context keys from UsersStream
+    )
     parent_stream_type = UsersStream
     primary_keys = ["id"]
     replication_key = "timestamp"
@@ -98,15 +100,19 @@ class MediaStream(InstagramStream):
         th.Property(
             "caption",
             th.StringType,
-            description="Caption. Excludes album children. @ symbol excluded unless the app user can perform "
-            "admin-equivalent tasks on the Facebook Page connected to the Instagram account used to "
-            "create the caption.",
+            description=(
+                "Caption. Excludes album children. @ symbol excluded unless the app user can perform "
+                "admin-equivalent tasks on the Facebook Page connected to the Instagram account used to "
+                "create the caption."
+            ),
         ),
         th.Property(
             "comments_count",
             th.IntegerType,
-            description="Count of comments on the media. Excludes comments on album child media and the media's "
-            "caption. Includes replies on comments.",
+            description=(
+                "Count of comments on the media. Excludes comments on album child media and the media's "
+                "caption. Includes replies on comments."
+            ),
         ),
         th.Property(
             "is_comment_enabled",
@@ -116,8 +122,10 @@ class MediaStream(InstagramStream):
         th.Property(
             "like_count",
             th.IntegerType,
-            description="Count of likes on the media. Excludes likes on album child media and likes on promoted posts "
-            "created from the media. Includes replies on comments.",
+            description=(
+                "Count of likes on the media. Excludes likes on album child media and likes on promoted posts "
+                "created from the media. Includes replies on comments."
+            ),
         ),
         th.Property(
             "media_product_type",
@@ -132,8 +140,10 @@ class MediaStream(InstagramStream):
         th.Property(
             "media_url",
             th.StringType,
-            description="Media URL. Will be omitted from responses if the media contains copyrighted material, "
-            "or has been flagged for a copyright violation.",
+            description=(
+                "Media URL. Will be omitted from responses if the media contains copyrighted material, "
+                "or has been flagged for a copyright violation."
+            ),
         ),
         th.Property(
             "owner",
@@ -149,8 +159,10 @@ class MediaStream(InstagramStream):
                     description="Username of Instagram user who created the media.",
                 ),
             ),
-            description="ID of Instagram user who created the media. Only returned if the app user making the query "
-            "also created the media, otherwise username field will be returned instead.",
+            description=(
+                "ID of Instagram user who created the media. Only returned if the app user making the query "
+                "also created the media, otherwise username field will be returned instead."
+            ),
         ),
         th.Property(
             "permalink",
@@ -218,7 +230,9 @@ class StoriesStream(InstagramStream):
     """Define custom stream."""
 
     name = "stories"
-    path = "/{user_id}/stories"  # user_id is populated using child context keys from UsersStream
+    path = (
+        "/{user_id}/stories"  # user_id is populated using child context keys from UsersStream
+    )
     parent_stream_type = UsersStream
     primary_keys = ["id"]
     records_jsonpath = "$.data[*]"
@@ -254,15 +268,19 @@ class StoriesStream(InstagramStream):
         th.Property(
             "caption",
             th.StringType,
-            description="Caption. Excludes album children. @ symbol excluded unless the app user can perform "
-            "admin-equivalent tasks on the Facebook Page connected to the Instagram account used to "
-            "create the caption.",
+            description=(
+                "Caption. Excludes album children. @ symbol excluded unless the app user can perform "
+                "admin-equivalent tasks on the Facebook Page connected to the Instagram account used to "
+                "create the caption."
+            ),
         ),
         th.Property(
             "comments_count",
             th.IntegerType,
-            description="Count of comments on the media. Excludes comments on album child media and the media's "
-            "caption. Includes replies on comments.",
+            description=(
+                "Count of comments on the media. Excludes comments on album child media and the media's "
+                "caption. Includes replies on comments."
+            ),
         ),
         th.Property(
             "is_comment_enabled",
@@ -272,8 +290,10 @@ class StoriesStream(InstagramStream):
         th.Property(
             "like_count",
             th.IntegerType,
-            description="Count of likes on the media. Excludes likes on album child media and likes on promoted posts "
-            "created from the media. Includes replies on comments.",
+            description=(
+                "Count of likes on the media. Excludes likes on album child media and likes on promoted posts "
+                "created from the media. Includes replies on comments."
+            ),
         ),
         th.Property(
             "media_product_type",
@@ -288,8 +308,10 @@ class StoriesStream(InstagramStream):
         th.Property(
             "media_url",
             th.StringType,
-            description="Media URL. Will be omitted from responses if the media contains copyrighted material, "
-            "or has been flagged for a copyright violation.",
+            description=(
+                "Media URL. Will be omitted from responses if the media contains copyrighted material, "
+                "or has been flagged for a copyright violation."
+            ),
         ),
         th.Property(
             "owner",
@@ -305,8 +327,10 @@ class StoriesStream(InstagramStream):
                     description="Username of Instagram user who created the media.",
                 ),
             ),
-            description="ID of Instagram user who created the media. Only returned if the app user making the query "
-            "also created the media, otherwise username field will be returned instead.",
+            description=(
+                "ID of Instagram user who created the media. Only returned if the app user making the query "
+                "also created the media, otherwise username field will be returned instead."
+            ),
         ),
         th.Property(
             "permalink",
@@ -448,8 +472,9 @@ class MediaInsightsStream(InstagramStream):
     ).to_dict()
 
     @staticmethod
-    def _metrics_for_media_type(media_type: str, media_product_type: str):
-        # TODO: Define types for these function args
+    def _metrics_for_media_type(media_type: str, media_product_type: Optional[str]):
+        # v22+: "plays" non è più supportata.
+        # Manteniamo il resto delle metriche storiche finché l'API non dà errore.
         if media_type in ("IMAGE", "VIDEO"):
             if media_product_type == "STORY":
                 return [
@@ -464,7 +489,7 @@ class MediaInsightsStream(InstagramStream):
                 return [
                     "comments",
                     "likes",
-                    "plays",
+                    # "plays",  # deprecata in v22
                     "reach",
                     "saved",
                     "shares",
@@ -490,7 +515,9 @@ class MediaInsightsStream(InstagramStream):
             ]
         else:
             raise ValueError(
-                f"media_type from parent record must be one of IMAGE, VIDEO, CAROUSEL_ALBUM, got: {media_type}"
+                "media_type from parent record must be one of "
+                "IMAGE, VIDEO, CAROUSEL_ALBUM, got: "
+                f"{media_type}"
             )
 
     def get_url_params(
@@ -553,22 +580,6 @@ class MediaInsightsStream(InstagramStream):
                         yield values
 
 
-# class MediaInsightsStream(BaseMediaInsightsStream):
-#     """Define custom stream."""
-#
-#     name = "media_insights"
-#     parent_stream_type = MediaStream
-#     state_partitioning_keys = ["user_id"]
-
-
-# Insights not available for children media objects
-# https://developers.facebook.com/docs/instagram-api/reference/ig-media/insights#limitations
-# class MediaChildrenInsightsStream(BaseMediaInsightsStream):
-#     """Define custom stream."""
-#     name = "media_children_insights"
-#     parent_stream_type = MediaChildrenStream
-
-
 class StoryInsightsStream(InstagramStream):
     """Define custom stream."""
 
@@ -625,16 +636,18 @@ class StoryInsightsStream(InstagramStream):
 
     @staticmethod
     def _metrics_for_media_type(media_type: str, media_product_type: str):
-        # TODO: Define types for these function args
+        # Story insights: manteniamo il set classico; se in v22 qualche metrica
+        # diventasse non supportata, l'API restituirà un 400 e potremo togliere
+        # solo quella.
         if media_type in ("IMAGE", "VIDEO"):
             if media_product_type == "STORY":
                 return [
-                    # "exits",
+                    "exits",
                     "impressions",
                     "reach",
                     "replies",
-                    # "taps_forward",
-                    # "taps_back",
+                    "taps_forward",
+                    "taps_back",
                 ]
             else:  # media_product_type is "AD" or "FEED"
                 metrics = [
@@ -656,7 +669,9 @@ class StoryInsightsStream(InstagramStream):
             ]
         else:
             raise ValueError(
-                f"media_type from parent record must be one of IMAGE, VIDEO, CAROUSEL_ALBUM, got: {media_type}"
+                "media_type from parent record must be one of "
+                "IMAGE, VIDEO, CAROUSEL_ALBUM, got: "
+                f"{media_type}"
             )
 
     def get_url_params(
@@ -732,8 +747,6 @@ class UserInsightsStream(InstagramStream):
     time_period: str  # TODO: Use an Enum type instead
     metrics: List[str]
 
-    # Optionally, you may also use `schema_filepath` in place of `schema`:
-    # schema_filepath = SCHEMAS_DIR / "users.json"
     schema = th.PropertiesList(
         th.Property(
             "id",
@@ -813,7 +826,6 @@ class UserInsightsStream(InstagramStream):
     def get_url_params(
         self, context: Optional[dict], next_page_token: Optional[Any]
     ) -> Dict[str, Any]:
-        # TODO: Is there a cleaner way to do this?
         params = super().get_url_params(context, next_page_token)
         if next_page_token:
             return params
@@ -869,21 +881,7 @@ class UserInsightsOnlineFollowersStream(UserInsightsStream):
     name = "user_insights_online_followers"
     metrics = ["online_followers"]
     time_period = "lifetime"
-    # TODO: Add note about online_followers seemingly only going back 30 days
-
-
-# class UserInsightsAudienceStream(UserInsightsStream):
-#     """Define custom stream."""
-#
-#     name = "user_insights_audience"
-#     metrics = [
-#         "audience_city",
-#         "audience_country",
-#         "audience_gender_age",
-#         "audience_locale",
-#     ]
-#     time_period = "lifetime"
-#     has_pagination = False
+    # NOTE: online_followers tipicamente ha storico limitato (~30 giorni)
 
 
 class UserInsightsFollowersStream(UserInsightsStream):
@@ -896,39 +894,41 @@ class UserInsightsFollowersStream(UserInsightsStream):
 
 
 class UserInsightsDailyStream(UserInsightsStream):
-    """Define custom stream."""
+    """Daily user insights (v22-safe subset)."""
 
     name = "user_insights_daily"
     metrics = [
-        "email_contacts",
-        "get_directions_clicks",
-        "impressions",
-        "phone_call_clicks",
-        "profile_views",
         "reach",
-        "text_message_clicks",
+        "views",
+        "profile_views",
         "website_clicks",
+        "accounts_engaged",
+        "total_interactions",
     ]
     time_period = "day"
 
 
 class UserInsightsWeeklyStream(UserInsightsStream):
-    """Define custom stream."""
+    """Weekly user insights (v22-safe subset)."""
 
     name = "user_insights_weekly"
     metrics = [
-        "impressions",
         "reach",
+        "views",
+        "accounts_engaged",
+        "total_interactions",
     ]
     time_period = "week"
 
 
 class UserInsights28DayStream(UserInsightsStream):
-    """Define custom stream."""
+    """28-day user insights (v22-safe subset)."""
 
     name = "user_insights_28day"
     metrics = [
-        "impressions",
         "reach",
+        "views",
+        "accounts_engaged",
+        "total_interactions",
     ]
     time_period = "days_28"
