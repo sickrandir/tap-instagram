@@ -731,6 +731,10 @@ class UserInsightsStream(InstagramStream):
         params["metric"] = ",".join(self.metrics)
         params["period"] = self.time_period
 
+        # v22: metrics like views, accounts_engaged, total_interactions
+        # must explicitly use metric_type=total_value
+        params["metric_type"] = "total_value"
+
         if self.has_pagination:
             since, until = self._fetch_time_based_pagination_range(
                 context,
