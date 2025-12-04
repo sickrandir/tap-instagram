@@ -1,12 +1,14 @@
 """Stream type classes for tap-instagram."""
 
+import re
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import pendulum
 import requests
 from singer_sdk import typing as th  # JSON Schema typing helpers
 from singer_sdk.helpers.jsonpath import extract_jsonpath
+from singer_sdk.exceptions import FatalAPIError
 
 from tap_instagram.client import InstagramStream
 
@@ -685,6 +687,8 @@ class UserInsightsStream(InstagramStream):
     max_time_window: timedelta = pendulum.duration(days=30)
     time_period: str  # e.g. "day", "week", "days_28", "lifetime"
     metrics: List[str]
+    _unsupported_metrics: Set[str]
+    _active_metrics: Optional[List[str]] = None
 
     schema = th.PropertiesList(
         th.Property("id", th.StringType),
@@ -696,6 +700,53 @@ class UserInsightsStream(InstagramStream):
         th.Property("title", th.StringType),
         th.Property("description", th.StringType),
     ).to_dict()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._unsupported_metrics = set()
+
+    def _effective_metrics(self) -> List[str]:
+        """Return metrics filtered to exclude ones already rejected by the API."""
+        return [m for m in self.metrics if m not in self._unsupported_metrics]
+
+    @staticmethod
+    def _parse_incompatible_metric(error_message: str) -> Optional[str]:
+        """Extract the metric name from the API error payload."""
+        if "incompatible" not in error_message:
+            return None
+        match = re.search(r"metric \(([^)]+)\)", error_message)
+        if match:
+            return match.group(1)
+        return None
+
+    def get_records(self, context: Optional[dict]) -> Iterable[Dict[str, Any]]:
+        while True:
+            metrics = self._effective_metrics()
+            if not metrics:
+                self.logger.warning(
+                    "Skipping %s: no compatible metrics remain for period '%s'.",
+                    self.name,
+                    self.time_period,
+                )
+                return
+
+            self._active_metrics = metrics
+            try:
+                yield from super().get_records(context)
+                return
+            except FatalAPIError as exc:
+                metric = self._parse_incompatible_metric(str(exc))
+                if metric:
+                    self.logger.warning(
+                        "API rejected metric '%s' for period '%s'; retrying without it.",
+                        metric,
+                        self.time_period,
+                    )
+                    self._unsupported_metrics.add(metric)
+                    continue
+                raise
+            finally:
+                self._active_metrics = None
 
     def _fetch_time_based_pagination_range(
         self,
@@ -728,10 +779,14 @@ class UserInsightsStream(InstagramStream):
         if next_page_token:
             return params
 
-        params["metric"] = ",".join(self.metrics)
+        metrics = self._active_metrics or self._effective_metrics()
+        if not metrics:
+            return params
+
+        params["metric"] = ",".join(metrics)
         params["period"] = self.time_period
 
-        # v22: metrics like views, accounts_engaged, total_interactions
+        # v22: metrics like impressions, accounts_engaged, total_interactions
         # must explicitly use metric_type=total_value
         params["metric_type"] = "total_value"
 
@@ -802,12 +857,17 @@ class UserInsightsDailyStream(UserInsightsStream):
 
     name = "user_insights_daily"
     metrics = [
-        "reach",
-        "views",
-        "profile_views",
-        "website_clicks",
         "accounts_engaged",
+        "accounts_reached",
+        "email_contacts",
+        "get_directions_clicks",
+        "impressions",
+        "phone_call_clicks",
+        "profile_views",
+        "reach",
+        "text_message_clicks",
         "total_interactions",
+        "website_clicks",
     ]
     time_period = "day"
 
@@ -817,9 +877,11 @@ class UserInsightsWeeklyStream(UserInsightsStream):
 
     name = "user_insights_weekly"
     metrics = [
-        "reach",
-        "views",
+        "accounts_reached",
         "accounts_engaged",
+        "impressions",
+        "profile_views",
+        "reach",
         "total_interactions",
     ]
     time_period = "week"
@@ -830,11 +892,8 @@ class UserInsights28DayStream(UserInsightsStream):
 
     name = "user_insights_28day"
     metrics = [
-        "reach",
-        "views",
-        "profile_views",
-        "website_clicks",
-        # Graph API v22: accounts_engaged limited to day/week, exclude to avoid (#100).
+        "accounts_reached",
+        "impressions",
         "total_interactions",
     ]
     time_period = "days_28"
