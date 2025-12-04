@@ -830,7 +830,11 @@ class UserInsights28DayStream(UserInsightsStream):
 
     name = "user_insights_28day"
     metrics = [
-        "accounts_engaged",
+        "reach",
+        "views",
+        "profile_views",
+        "website_clicks",
+        # Graph API v22: accounts_engaged limited to day/week, exclude to avoid (#100).
         "total_interactions",
     ]
     time_period = "days_28"
