@@ -830,7 +830,6 @@ class UserInsights28DayStream(UserInsightsStream):
 
     name = "user_insights_28day"
     metrics = [
-        "views",
         "accounts_engaged",
         "total_interactions",
     ]
