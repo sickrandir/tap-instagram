@@ -858,16 +858,17 @@ class UserInsightsDailyStream(UserInsightsStream):
     name = "user_insights_daily"
     metrics = [
         "accounts_engaged",
-        "accounts_reached",
-        "email_contacts",
-        "get_directions_clicks",
-        "impressions",
-        "phone_call_clicks",
-        "profile_views",
         "reach",
-        "text_message_clicks",
-        "total_interactions",
+        "profile_views",
         "website_clicks",
+        "total_interactions",
+        "views",
+        "likes",
+        "comments",
+        "shares",
+        "saves",
+        "replies",
+        "profile_links_taps",
     ]
     time_period = "day"
 
@@ -877,12 +878,16 @@ class UserInsightsWeeklyStream(UserInsightsStream):
 
     name = "user_insights_weekly"
     metrics = [
-        "accounts_reached",
         "accounts_engaged",
-        "impressions",
-        "profile_views",
         "reach",
+        "profile_views",
         "total_interactions",
+        "views",
+        "likes",
+        "comments",
+        "shares",
+        "saves",
+        "replies",
     ]
     time_period = "week"
 
@@ -892,8 +897,12 @@ class UserInsights28DayStream(UserInsightsStream):
 
     name = "user_insights_28day"
     metrics = [
-        "accounts_reached",
-        "impressions",
+        "reach",
+        "views",
         "total_interactions",
+        "likes",
+        "comments",
+        "shares",
+        "saves",
     ]
     time_period = "days_28"

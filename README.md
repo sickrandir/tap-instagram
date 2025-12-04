@@ -46,16 +46,14 @@ parameter.
 * **Media Children:** IG Media objects corresponding to images or videos in an album.
   * **Replication Method:** Full Table
   * **Parent Stream:** Media
-* **User Insights 28 Day:** User Insights stream containing impressions and reach for a 28 day period.
+* **User Insights 28 Day:** User Insights stream containing reach, views, total interactions, likes, comments, shares, and saves for a 28 day period.
   * **Replication Method:** Full Table
   * **Parent Stream:** Users
 * **User Insights Audience:** User Insights stream containing audience metrics audience_city, audience_country, 
 audience_gender_age, audience_locale for a lifetime period.
   * **Replication Method:** Full Table
   * **Parent Stream:** Users
-* **User Insights Daily:** User Insights stream containing all daily metrics except follower_count, which has less 
-historical data - email_contacts, get_directions_clicks, impressions, phone_call_clicks, profile_views, reach, 
-text_message_clicks, website_clicks.
+* **User Insights Daily:** User Insights stream containing the v22-supported daily metrics (accounts_engaged, reach, profile_views, website_clicks, total_interactions, views, likes, comments, shares, saves, replies, profile_links_taps).
   * **Replication Method:** Full Table
   * **Parent Stream:** Users
 * **User Insights Followers:** User Insights stream containing follower_count on a daily time period.
@@ -66,7 +64,7 @@ text_message_clicks, website_clicks.
   * **Replication Method:** Full Table
   * **Parent Stream:** Users
   * **Limitations:** Only returns data for the last 30 days.
-* **User Insights Weekly:** User Insights stream containing impressions and reach for a weekly period.
+* **User Insights Weekly:** User Insights stream containing the v22-supported weekly metrics (accounts_engaged, reach, profile_views, total_interactions, views, likes, comments, shares, saves, replies).
   * **Replication Method:** Full Table
   * **Parent Stream:** Users
 * **Media Insights:** Media Insights stream returning the supported metrics for photo, video, and album Media objects.
