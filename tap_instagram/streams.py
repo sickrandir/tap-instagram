@@ -29,8 +29,6 @@ class UsersStream(InstagramStream):
         "followers_count",
         "media_count",
     ]
-    # Optionally, you may also use `schema_filepath` in place of `schema`:
-    # schema_filepath = SCHEMAS_DIR / "users.json"
     schema = th.PropertiesList(
         th.Property("id", th.StringType),
         th.Property("ig_id", th.IntegerType),
@@ -60,9 +58,8 @@ class MediaStream(InstagramStream):
     """Define custom stream."""
 
     name = "media"
-    path = (
-        "/{user_id}/media"  # user_id is populated using child context keys from UsersStream
-    )
+    # user_id is populated using child context keys from UsersStream
+    path = "/{user_id}/media"
     parent_stream_type = UsersStream
     primary_keys = ["id"]
     replication_key = "timestamp"
@@ -84,8 +81,6 @@ class MediaStream(InstagramStream):
         "timestamp",
         "username",
     ]
-    # Optionally, you may also use `schema_filepath` in place of `schema`:
-    # schema_filepath = SCHEMAS_DIR / "users.json"
     schema = th.PropertiesList(
         th.Property(
             "id",
@@ -197,8 +192,7 @@ class MediaStream(InstagramStream):
             return pendulum.instance(state_ts).subtract(
                 days=self.config["media_insights_lookback_days"]
             )
-        else:
-            return state_ts
+        return state_ts
 
     def get_url_params(
         self, context: Optional[dict], next_page_token: Optional[Any]
@@ -210,7 +204,6 @@ class MediaStream(InstagramStream):
 
     def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
         return {
-            # "user_id": context["user_id"],
             "media_id": record["id"],
             "media_type": record["media_type"],
             # media_product_type not present for carousel children media
@@ -230,9 +223,8 @@ class StoriesStream(InstagramStream):
     """Define custom stream."""
 
     name = "stories"
-    path = (
-        "/{user_id}/stories"  # user_id is populated using child context keys from UsersStream
-    )
+    # user_id is populated using child context keys from UsersStream
+    path = "/{user_id}/stories"
     parent_stream_type = UsersStream
     primary_keys = ["id"]
     records_jsonpath = "$.data[*]"
@@ -252,8 +244,6 @@ class StoriesStream(InstagramStream):
         "timestamp",
         "username",
     ]
-    # Optionally, you may also use `schema_filepath` in place of `schema`:
-    # schema_filepath = SCHEMAS_DIR / "users.json"
     schema = th.PropertiesList(
         th.Property(
             "id",
@@ -368,7 +358,6 @@ class StoriesStream(InstagramStream):
 
     def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
         return {
-            # "user_id": context["user_id"],
             "media_id": record["id"],
             "media_type": record["media_type"],
             # media_product_type not present for carousel children media
@@ -390,10 +379,10 @@ class MediaChildrenStream(MediaStream):
     name = "media_children"
     parent_stream_type = MediaStream
     state_partitioning_keys = ["user_id"]
-    path = "/{media_id}/children"  # media_id is populated using child context keys from MediaStream
+    # media_id is populated using child context keys from MediaStream
+    path = "/{media_id}/children"
     # caption, comments_count, is_comment_enabled, like_count, media_product_type
     # not available on album children
-    # TODO: Is media_product_type available on children of some media types? carousel vs album children?
     # https://developers.facebook.com/docs/instagram-api/reference/ig-media#fields
     fields = [
         "id",
@@ -418,7 +407,7 @@ class MediaChildrenStream(MediaStream):
 
 
 class MediaInsightsStream(InstagramStream):
-    """Define custom stream."""
+    """Define custom stream for media insights."""
 
     name = "media_insights"
     path = "/{media_id}/insights"
@@ -429,134 +418,109 @@ class MediaInsightsStream(InstagramStream):
     records_jsonpath = "$.data[*]"
 
     schema = th.PropertiesList(
-        th.Property(
-            "id",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "name",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "period",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "end_time",
-            th.DateTimeType,
-            description="",
-        ),
-        th.Property(
-            "context",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "value",
-            th.IntegerType,
-            description="",
-        ),
-        th.Property(
-            "title",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "description",
-            th.StringType,
-            description="",
-        ),
+        th.Property("id", th.StringType),
+        th.Property("name", th.StringType),
+        th.Property("period", th.StringType),
+        th.Property("end_time", th.DateTimeType),
+        th.Property("context", th.StringType),
+        th.Property("value", th.IntegerType),
+        th.Property("title", th.StringType),
+        th.Property("description", th.StringType),
     ).to_dict()
 
     @staticmethod
-    def _metrics_for_media_type(media_type: str, media_product_type: Optional[str]):
-        # v22+: "plays" non è più supportata.
-        # Manteniamo il resto delle metriche storiche finché l'API non dà errore.
+    def _metrics_for_media_type(
+        media_type: str, media_product_type: Optional[str]
+    ) -> List[str]:
+        """
+        Decide metrics per media type/product type.
+
+        IMPORTANT for v22:
+        - DO NOT request 'plays' (deprecated) → caused your first error.
+        - DO NOT request 'impressions' for media insights (deprecated) → caused your new error.
+        """
         if media_type in ("IMAGE", "VIDEO"):
             if media_product_type == "STORY":
+                # Story-like media insights
                 return [
-                    "exits",
-                    "impressions",
                     "reach",
                     "replies",
+                    "exits",
                     "taps_forward",
                     "taps_back",
                 ]
             elif media_product_type == "REELS":
+                # Reels insights (no plays, no impressions)
                 return [
                     "comments",
                     "likes",
-                    # "plays",  # deprecata in v22
                     "reach",
                     "saved",
                     "shares",
                     "total_interactions",
+                    "views",
                 ]
-            else:  # media_product_type is "AD" or "FEED"
-                metrics = [
+            else:  # media_product_type is "AD", "FEED" or None
+                # Generic feed posts / videos: keep core KPIs without impressions
+                metrics: List[str] = [
                     "total_interactions",
-                    "impressions",
                     "reach",
                     "saved",
+                    "views",
                 ]
-                if media_type == "VIDEO":
-                    metrics.append("video_views")
                 return metrics
-        elif media_type == "CAROUSEL_ALBUM":
+
+        if media_type == "CAROUSEL_ALBUM":
+            # Carousel posts – again, no impressions or video_views
             return [
                 "total_interactions",
-                "impressions",
                 "reach",
                 "saved",
-                "video_views",
+                "views",
             ]
-        else:
-            raise ValueError(
-                "media_type from parent record must be one of "
-                "IMAGE, VIDEO, CAROUSEL_ALBUM, got: "
-                f"{media_type}"
-            )
+
+        raise ValueError(
+            f"media_type from parent record must be one of IMAGE, VIDEO, CAROUSEL_ALBUM, got: {media_type}"
+        )
 
     def get_url_params(
         self, context: Optional[dict], next_page_token: Optional[Any]
     ) -> Dict[str, Any]:
         params = super().get_url_params(context, next_page_token)
         metrics = self._metrics_for_media_type(
-            context["media_type"], context["media_product_type"]
+            context["media_type"], context.get("media_product_type")
         )
         params["metric"] = ",".join(metrics)
         return params
 
     def validate_response(self, response: requests.Response) -> None:
-        if response.json().get("error", {}).get(
-            "error_user_title"
-        ) == "Media posted before business account conversion" or "(#10) Not enough viewers for the media to show insights" in str(
-            response.json().get("error", {}).get("message")
-        ):
-            self.logger.warning(f"Skipping: {response.json()['error']}")
+        err = response.json().get("error", {})
+        message = str(err.get("message"))
+        user_title = err.get("error_user_title")
+
+        if user_title == "Media posted before business account conversion" or "(#10) Not enough viewers for the media to show insights" in message:
+            self.logger.warning(f"Skipping media insights: {err}")
             return
+
         super().validate_response(response)
 
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
         resp_json = response.json()
-        # Handle the specific case where FB returns error because media was posted before business acct creation
-        # TODO: Refactor to raise a specific error in validate_response and handle that instead
-        if resp_json.get("error", {}).get(
-            "error_user_title"
-        ) == "Media posted before business account conversion" or "(#10) Not enough viewers for the media to show insights" in str(
-            resp_json.get("error", {}).get("message")
-        ):
+        err = resp_json.get("error", {})
+        message = str(err.get("message"))
+        user_title = err.get("error_user_title")
+
+        # Same special-case handling as validate_response
+        if user_title == "Media posted before business account conversion" or "(#10) Not enough viewers for the media to show insights" in message:
             return
-        for row in resp_json["data"]:
+
+        for row in resp_json.get("data", []):
             base_item = {
                 "name": row["name"],
                 "period": row["period"],
-                "title": row["title"],
+                "title": row.get("title"),
                 "id": row["id"],
-                "description": row["description"],
+                "description": row.get("description"),
             }
             if "values" in row:
                 for values in row["values"]:
@@ -580,8 +544,16 @@ class MediaInsightsStream(InstagramStream):
                         yield values
 
 
+# Insights not available for children media objects
+# https://developers.facebook.com/docs/instagram-api/reference/ig-media/insights#limitations
+# class MediaChildrenInsightsStream(BaseMediaInsightsStream):
+#     """Define custom stream."""
+#     name = "media_children_insights"
+#     parent_stream_type = MediaChildrenStream
+
+
 class StoryInsightsStream(InstagramStream):
-    """Define custom stream."""
+    """Define custom stream for story insights."""
 
     name = "story_insights"
     path = "/{media_id}/insights"
@@ -592,125 +564,91 @@ class StoryInsightsStream(InstagramStream):
     records_jsonpath = "$.data[*]"
 
     schema = th.PropertiesList(
-        th.Property(
-            "id",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "name",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "period",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "end_time",
-            th.DateTimeType,
-            description="",
-        ),
-        th.Property(
-            "context",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "value",
-            th.IntegerType,
-            description="",
-        ),
-        th.Property(
-            "title",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "description",
-            th.StringType,
-            description="",
-        ),
+        th.Property("id", th.StringType),
+        th.Property("name", th.StringType),
+        th.Property("period", th.StringType),
+        th.Property("end_time", th.DateTimeType),
+        th.Property("context", th.StringType),
+        th.Property("value", th.IntegerType),
+        th.Property("title", th.StringType),
+        th.Property("description", th.StringType),
     ).to_dict()
 
     @staticmethod
-    def _metrics_for_media_type(media_type: str, media_product_type: str):
-        # Story insights: manteniamo il set classico; se in v22 qualche metrica
-        # diventasse non supportata, l'API restituirà un 400 e potremo togliere
-        # solo quella.
+    def _metrics_for_media_type(
+        media_type: str, media_product_type: Optional[str]
+    ) -> List[str]:
+        """
+        Story insights – v22-safe:
+        - No 'impressions' here either to avoid future surprises.
+        """
         if media_type in ("IMAGE", "VIDEO"):
             if media_product_type == "STORY":
                 return [
-                    "exits",
-                    "impressions",
                     "reach",
                     "replies",
+                    "exits",
                     "taps_forward",
                     "taps_back",
+                    "views",
                 ]
-            else:  # media_product_type is "AD" or "FEED"
-                metrics = [
-                    "total_interactions",
-                    "impressions",
-                    "reach",
-                    "saved",
-                ]
-                if media_type == "VIDEO":
-                    metrics.append("video_views")
-                return metrics
-        elif media_type == "CAROUSEL_ALBUM":
+            # Fallback: treat like generic media
             return [
-                "total_interactions",
-                "impressions",
                 "reach",
+                "views",
+                "total_interactions",
                 "saved",
-                "video_views",
             ]
-        else:
-            raise ValueError(
-                "media_type from parent record must be one of "
-                "IMAGE, VIDEO, CAROUSEL_ALBUM, got: "
-                f"{media_type}"
-            )
+
+        if media_type == "CAROUSEL_ALBUM":
+            return [
+                "reach",
+                "views",
+                "total_interactions",
+                "saved",
+            ]
+
+        raise ValueError(
+            f"media_type from parent record must be one of IMAGE, VIDEO, CAROUSEL_ALBUM, got: {media_type}"
+        )
 
     def get_url_params(
         self, context: Optional[dict], next_page_token: Optional[Any]
     ) -> Dict[str, Any]:
         params = super().get_url_params(context, next_page_token)
         metrics = self._metrics_for_media_type(
-            context["media_type"], context["media_product_type"]
+            context["media_type"], context.get("media_product_type")
         )
         params["metric"] = ",".join(metrics)
         return params
 
     def validate_response(self, response: requests.Response) -> None:
-        if response.json().get("error", {}).get(
-            "error_user_title"
-        ) == "Media posted before business account conversion" or "(#10) Not enough viewers for the media to show insights" in str(
-            response.json().get("error", {}).get("message")
-        ):
-            self.logger.warning(f"Skipping: {response.json()['error']}")
+        err = response.json().get("error", {})
+        message = str(err.get("message"))
+        user_title = err.get("error_user_title")
+
+        if user_title == "Media posted before business account conversion" or "(#10) Not enough viewers for the media to show insights" in message:
+            self.logger.warning(f"Skipping story insights: {err}")
             return
+
         super().validate_response(response)
 
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
         resp_json = response.json()
-        # Handle the specific case where FB returns error because media was posted before business acct creation
-        # TODO: Refactor to raise a specific error in validate_response and handle that instead
-        if resp_json.get("error", {}).get(
-            "error_user_title"
-        ) == "Media posted before business account conversion" or "(#10) Not enough viewers for the media to show insights" in str(
-            resp_json.get("error", {}).get("message")
-        ):
+        err = resp_json.get("error", {})
+        message = str(err.get("message"))
+        user_title = err.get("error_user_title")
+
+        if user_title == "Media posted before business account conversion" or "(#10) Not enough viewers for the media to show insights" in message:
             return
-        for row in resp_json["data"]:
+
+        for row in resp_json.get("data", []):
             base_item = {
                 "name": row["name"],
                 "period": row["period"],
-                "title": row["title"],
+                "title": row.get("title"),
                 "id": row["id"],
-                "description": row["description"],
+                "description": row.get("description"),
             }
             if "values" in row:
                 for values in row["values"]:
@@ -736,7 +674,8 @@ class StoryInsightsStream(InstagramStream):
 
 class UserInsightsStream(InstagramStream):
     parent_stream_type = UsersStream
-    path = "/{user_id}/insights"  # user_id is populated using child context keys from UsersStream
+    # user_id is populated using child context keys from UsersStream
+    path = "/{user_id}/insights"
     primary_keys = ["id"]
     replication_key = "end_time"
     records_jsonpath = "$.data[*]"
@@ -744,50 +683,18 @@ class UserInsightsStream(InstagramStream):
     min_start_date: datetime = pendulum.now("UTC").subtract(years=2).add(days=1)
     max_end_date: datetime = pendulum.today("UTC").subtract(days=1)
     max_time_window: timedelta = pendulum.duration(days=30)
-    time_period: str  # TODO: Use an Enum type instead
+    time_period: str  # e.g. "day", "week", "days_28", "lifetime"
     metrics: List[str]
 
     schema = th.PropertiesList(
-        th.Property(
-            "id",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "name",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "period",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "end_time",
-            th.DateTimeType,
-            description="",
-        ),
-        th.Property(
-            "context",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "value",
-            th.IntegerType,
-            description="",
-        ),
-        th.Property(
-            "title",
-            th.StringType,
-            description="",
-        ),
-        th.Property(
-            "description",
-            th.StringType,
-            description="",
-        ),
+        th.Property("id", th.StringType),
+        th.Property("name", th.StringType),
+        th.Property("period", th.StringType),
+        th.Property("end_time", th.DateTimeType),
+        th.Property("context", th.StringType),
+        th.Property("value", th.IntegerType),
+        th.Property("title", th.StringType),
+        th.Property("description", th.StringType),
     ).to_dict()
 
     def _fetch_time_based_pagination_range(
@@ -798,16 +705,7 @@ class UserInsightsStream(InstagramStream):
         max_time_window: timedelta,
     ) -> Tuple[datetime, datetime]:
         """
-        Make "since" and "until" pagination timestamps
-        Args:
-            context:
-            min_since: Min datetime for "since" parameter. Defaults to 2 years ago, max historical data
-                       supported for Facebook metrics.
-            max_until: Max datetime for which data is available. Defaults to a day ago.
-            max_time_window: Maximum duration (as a "tiemdelta") between "since" and "until". Default to
-                             30 days, max window supported by Facebook
-
-        Returns: DateTime objects for "since" and "until"
+        Make "since" and "until" pagination timestamps.
         """
         try:
             since = min(max(self.get_starting_timestamp(context), min_since), max_until)
@@ -829,6 +727,7 @@ class UserInsightsStream(InstagramStream):
         params = super().get_url_params(context, next_page_token)
         if next_page_token:
             return params
+
         params["metric"] = ",".join(self.metrics)
         params["period"] = self.time_period
 
@@ -841,17 +740,18 @@ class UserInsightsStream(InstagramStream):
             )
             params["since"] = since
             params["until"] = until
+
         return params
 
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
         resp_json = response.json()
-        for row in resp_json["data"]:
+        for row in resp_json.get("data", []):
             base_item = {
                 "name": row["name"],
                 "period": row["period"],
-                "title": row["title"],
+                "title": row.get("title"),
                 "id": row["id"],
-                "description": row["description"],
+                "description": row.get("description"),
             }
             if "values" in row:
                 for values in row["values"]:
@@ -881,11 +781,11 @@ class UserInsightsOnlineFollowersStream(UserInsightsStream):
     name = "user_insights_online_followers"
     metrics = ["online_followers"]
     time_period = "lifetime"
-    # NOTE: online_followers tipicamente ha storico limitato (~30 giorni)
+    # NOTE: online_followers has a limited historical range
 
 
 class UserInsightsFollowersStream(UserInsightsStream):
-    """Define custom stream."""
+    """Define custom stream for follower_count."""
 
     name = "user_insights_followers"
     metrics = ["follower_count"]
