@@ -46,6 +46,10 @@ parameter.
 * **Media Children:** IG Media objects corresponding to images or videos in an album.
   * **Replication Method:** Full Table
   * **Parent Stream:** Media
+* **Media Comments:** Comment objects associated with IG Media items.
+  * **Replication Method:** Full Table
+  * **Parent Stream:** Media
+  * **Limitations:** Returns the comments surface that the API exposes (no sentiment or moderation metadata). Replies can be retrieved by querying the comment IDs separately if needed.
 * **User Insights 28 Day:** User Insights stream containing reach, views, total interactions, likes, comments, shares, and saves for a 28 day period.
   * **Replication Method:** Full Table
   * **Parent Stream:** Users

@@ -8,6 +8,7 @@ from singer_sdk import typing as th  # JSON schema typing helpers
 
 from tap_instagram.streams import (
     MediaChildrenStream,
+    MediaCommentsStream,
     MediaInsightsStream,
     MediaStream,
     StoriesStream,
@@ -22,6 +23,7 @@ from tap_instagram.streams import (
 
 STREAM_TYPES = [
     MediaChildrenStream,
+    MediaCommentsStream,
     MediaInsightsStream,
     MediaStream,
     StoriesStream,

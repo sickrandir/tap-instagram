@@ -408,6 +408,68 @@ class MediaChildrenStream(MediaStream):
             yield row
 
 
+class MediaCommentsStream(InstagramStream):
+    """Retrieve comments for each media object."""
+
+    name = "media_comments"
+    parent_stream_type = MediaStream
+    state_partitioning_keys = ["user_id"]
+    path = "/{media_id}/comments"
+    primary_keys = ["id"]
+    records_jsonpath = "$.data[*]"
+    fields = [
+        "id",
+        "text",
+        "username",
+        "timestamp",
+        "like_count",
+        "user",
+    ]
+
+    schema = th.PropertiesList(
+        th.Property("id", th.StringType, description="Comment ID."),
+        th.Property("text", th.StringType, description="Comment text."),
+        th.Property(
+            "username",
+            th.StringType,
+            description="Username of the commenter (if available).",
+        ),
+        th.Property(
+            "timestamp",
+            th.DateTimeType,
+            description="ISO 8601 timestamp when the comment was created.",
+        ),
+        th.Property(
+            "like_count",
+            th.IntegerType,
+            description="Number of likes on the comment.",
+        ),
+        th.Property(
+            "user",
+            th.ObjectType(
+                th.Property("id", th.StringType),
+                th.Property("username", th.StringType),
+            ),
+            description="Optional user object returned by the API.",
+        ),
+    ).to_dict()
+
+    def get_url_params(
+        self, context: Optional[dict], next_page_token: Optional[Any]
+    ) -> Dict[str, Any]:
+        params = super().get_url_params(context, next_page_token)
+        params["fields"] = ",".join(self.fields)
+        return params
+
+    def parse_response(self, response: requests.Response) -> Iterable[dict]:
+        for row in extract_jsonpath(self.records_jsonpath, input=response.json()):
+            if "timestamp" in row and row["timestamp"]:
+                row["timestamp"] = pendulum.parse(row["timestamp"]).format(
+                    "YYYY-MM-DD HH:mm:ss"
+                )
+            yield row
+
+
 class MediaInsightsStream(InstagramStream):
     """Define custom stream for media insights."""
 
